@@ -1,7 +1,5 @@
 import data
-import time
 from selenium import webdriver
-from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
@@ -41,13 +39,13 @@ class UrbanRoutesPage:
     to_field = (By.ID, 'to')
     wait = (By.CLASS_NAME, "workflow")
     mode = (By.XPATH, '//div[@class="workflow-subcontainer"]//button[@class="button round"]')
-    tag = (By.XPATH, '//div[@class="tariff-cards"]//div[5][@class="tcard"]')
+    tag = (By.XPATH, '//div[@class="tariff-cards"]//div[@class="tcard"]//div[contains(text(), "Comfort")]')
     phone_number_button = (By.CLASS_NAME, "np-button")
     phone_field = (By.ID, "phone")
     phone_next_button = (By.CLASS_NAME, "button full")
     phone_phone_code_field = (By.ID, "code")
-    phone_confirm_button_1 = (By.XPATH, '//form//button[1][@class="button full"]')
-    phone_confirm_button_2 = (By.XPATH, '//form//button[2][@class="button full"]')
+    phone_confirm_button_1 = (By.XPATH, '//div[@class="section active"]//button[@class="button full"]')
+    phone_confirm_button_2 = (By.XPATH, '//div[@class="section active"]//button[@class="button full"]')
     payment_method_button = (By.CLASS_NAME, "pp-button")
     plus_button = (By.CLASS_NAME, "pp-plus-container")
     card_number_field = (By.XPATH, '//input[@ID="number"]')
@@ -60,6 +58,7 @@ class UrbanRoutesPage:
     add_icecream = (By.CLASS_NAME, "counter-plus")
     main_button = (By.CLASS_NAME, "smart-button")
     order_value = (By.CLASS_NAME, "order-number")
+
 
     def __init__(self, driver):
         self.driver = driver
@@ -95,7 +94,8 @@ class UrbanRoutesPage:
         self.driver.find_element(*self.phone_confirm_button_1).click()
 
     def set_code(self):
-        self.driver.find_element(*self.phone_phone_code_field).send_keys(retrieve_phone_code(self.driver.get_log))
+        code_tel = retrieve_phone_code(driver=self.driver)
+        self.driver.find_element(*self.phone_phone_code_field).send_keys(code_tel)
 
     def click_phone_confirm_button(self):
         self.driver.find_element(*self.phone_confirm_button_2).click()
@@ -172,10 +172,10 @@ class TestUrbanRoutes:
     @classmethod
     def setup_class(cls):
         # no lo modifiques, ya que necesitamos un registro adicional habilitado para recuperar el código de confirmación del teléfono
-        from selenium.webdriver import DesiredCapabilities
-        capabilities = DesiredCapabilities.CHROME
-        capabilities["goog:loggingPrefs"] = {'performance': 'ALL'}
-        cls.driver = webdriver.Chrome()
+        from selenium.webdriver.chrome.options import Options as ChromeOptions
+        chrome_options = ChromeOptions()
+        chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+        cls.driver = webdriver.Chrome(options=chrome_options)
 
     def test_set_route(self):
         self.driver.get(data.urban_routes_url)
@@ -188,48 +188,42 @@ class TestUrbanRoutes:
         assert routes_page.get_to() == address_to
 
     def test_set_comfort_mode(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         routes.set_mode_comfort()
-        assert (By.XPATH, '//div[@class="tcard active"]//div[contains(text("Comfort"))]')
+        assert self.driver.find_element(By.XPATH, '//div[@class="tariff-cards"]//div[@class="tcard active"]//div[contains(text(), "Comfort")]').text == "Comfort"
 
-    """def test_set_phone(self):
-        time.sleep(2)
+    def test_set_phone(self):
         routes = UrbanRoutesPage(self.driver)
         phone_number = data.phone_number
-        routes.set_phone_number(phone_number)"""
-
+        routes.set_phone_number(phone_number)
+        assert self.driver.find_element(By.CLASS_NAME, "np-text").text == "+1 123 123 12 12"
     def test_add_card(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         card_number = data.card_number
         card_code = data.card_code
         routes.set_credit_card(card_number, card_code)
-        assert (By.XPATH, '//div[contains(text("Tarjeta"))]')
+        assert self.driver.find_element(By.XPATH, '//div[@class="pp-value-text"]').text == "Tarjeta"
 
     def test_message_for_driver(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         message = data.message_for_driver
         routes.set_message(message)
-        assert (By.XPATH, "//input[@value='Muéstrame el camino al museo']")
+        assert self.driver.find_element(By.ID, "comment").get_attribute("value") == "Muéstrame el camino al museo"
 
     def test_requirements(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         routes.set_requirements()
         assert (By.XPATH, '//span[@class="slider round"]')
 
     def test_ice_cream(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         routes.add_ice_cream()
-        assert (By.XPATH, "//div[@class='counter-value']//div[contains(text(), '2')]")
+        assert self.driver.find_element(By.XPATH, "//div[contains(text(), 'Helado')]/following-sibling::div//div[@class='counter-value']").text == "2"
 
     def test_main_button(self):
-        time.sleep(1)
         routes = UrbanRoutesPage(self.driver)
         routes.click_main_button()
+        assert self.driver.find_element(By.CLASS_NAME, "smart-button-main").text == "Pedir un taxi"
 
     def test_wait_for_driver_info(self):
         routes = UrbanRoutesPage(self.driver)
